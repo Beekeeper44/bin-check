@@ -97,25 +97,27 @@ tr.drawer>td{padding:0;background:var(--panel2);text-align:left;white-space:norm
 .s.dim{opacity:.2}
 .s.hl{outline:2px solid var(--hl);outline-offset:1px}
 
-.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px}
+.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
 .item{background:var(--bg);border:1px solid var(--line);border-radius:8px;overflow:hidden;text-decoration:none;color:inherit;display:flex;flex-direction:column;scroll-margin:140px}
 .item:hover{border-color:var(--muted)}
 .item.ac{border-color:var(--ac-dim)}
 .item.flash{border-color:var(--hl);box-shadow:0 0 0 2px var(--hl)}
-.img{aspect-ratio:3/5;background:var(--img);display:flex;align-items:center;justify-content:center;position:relative}
+.img{margin:0 8px;border-radius:6px;overflow:hidden;aspect-ratio:3/5;background:var(--img);display:flex;align-items:center;justify-content:center;position:relative}
 .item.watch .img{aspect-ratio:1/1}
 .img img{width:100%;height:100%;object-fit:contain}
 .img .none{color:var(--none);font-size:11px}
-.badge{position:absolute;top:6px;left:6px;background:var(--chip);border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-weight:700}
+.ihead{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:6px;padding:8px 8px 6px}
+.ihead>:first-child{justify-self:start}
+.badge{background:var(--chip);border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-weight:700}
 .item.ac .badge{color:var(--ac);border-color:var(--ac-dim)}
-.kind{position:absolute;top:6px;right:6px;font-size:10px;color:var(--watch);border:1px solid var(--watch-line);border-radius:4px;padding:1px 6px;background:var(--chip)}
-.meta{padding:9px 10px 11px;display:flex;flex-direction:column;gap:2px}
+.kind{font-size:10px;color:var(--watch);border:1px solid var(--watch-line);border-radius:4px;padding:1px 6px;background:var(--chip)}
+.meta{padding:10px 10px 12px;display:flex;flex-direction:column;gap:2px}
 .meta .t{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .meta .sub{color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .meta .line{display:flex;justify-content:space-between;gap:6px;font-size:11px;margin-top:4px}
 .meta .owner{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .item.ac .owner{color:var(--ac)}
-.status{display:inline-block;align-self:flex-start;margin-top:6px;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:700;background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
+.status{display:inline-block;justify-self:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:700;background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
 .status.pend{background:var(--pend);color:var(--pill-text);border-color:var(--pend)}
 .status.vault{background:var(--vault);color:var(--pill-text);border-color:var(--vault)}
 .item.pend{border:2px solid var(--pend);box-shadow:0 0 0 1px var(--pend)}
@@ -180,7 +182,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const num = v => { const n = Number(v); return isNaN(n) ? 0 : n; };
 const fmt = n => n.toLocaleString();
 const titleCase = s => String(s || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-const statusPill = s => !s ? '' : `<span class="status ${s === 'pending_external_checkout' ? 'pend' : s === 'vaulted' ? 'vault' : ''}">${esc(titleCase(s))}</span>`;
+const statusPill = (s, short) => !s ? '' : `<span class="status ${s === 'pending_external_checkout' ? 'pend' : s === 'vaulted' ? 'vault' : ''}" title="${esc(titleCase(s))}">${esc(short && s === 'pending_external_checkout' ? 'Pending Checkout' : titleCase(s))}</span>`;
 const money = n => '$' + Math.round(n).toLocaleString();
 const truthy = v => v === true || v === 1 || String(v).toLowerCase() === 'true';
 const norm = r => Object.fromEntries(Object.entries(r).map(([k, v]) => [k.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''), v]));
@@ -361,19 +363,21 @@ function renderDrawer() {
 
 function itemHTML(i, idx) {
   const grade = [i.company, i.grade].filter(x => x !== '' && x != null).join(' ');
-  const status = statusPill(i.status || (i.type === 'card' ? 'vaulted' : ''));
+  const status = statusPill(i.status || (i.type === 'card' ? 'vaulted' : ''), true);
   const id = i.type === 'card' && i.slot != null ? `id="slot-${i.slot}"` : '';
   const tag = i.url ? 'a' : 'div';
   return `<${tag} class="item ${i.ac ? 'ac' : ''} ${i.type} ${i.status === 'pending_external_checkout' ? 'pend' : ''}" ${id} ${i.url ? `href="${esc(i.url)}" target="_blank" rel="noopener"` : ''} data-slot="${i.slot ?? ''}" data-idx="${idx}">
-    <div class="img">${i.img ? `<img src="${esc(i.img)}" alt="${esc(i.title)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'none',textContent:'No image'}))">` : '<span class="none">No image</span>'}
-      ${i.type === 'card' ? `<span class="badge">${i.slot ?? '–'}</span>` : '<span class="kind">Watch</span>'}</div>
+    <div class="ihead">
+      ${i.type === 'card' ? `<span class="badge">${i.slot ?? '–'}</span>` : '<span class="kind">Watch</span>'}
+      ${status}
+    </div>
+    <div class="img">${i.img ? `<img src="${esc(i.img)}" alt="${esc(i.title)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'none',textContent:'No image'}))">` : '<span class="none">No image</span>'}</div>
     <div class="meta">
       <div class="t" title="${esc(i.title)}">${esc(i.title)}</div>
       ${i.sub ? `<div class="sub" title="${esc(i.sub)}">${esc(i.sub)}</div>` : ''}
       <div class="line"><span>${esc(grade)}</span><span class="evv">${i.ev != null ? money(i.ev) : ''}</span></div>
       ${i.number && String(i.number).length < 14 ? `<div class="line"><span class="sub">${esc(i.number)}</span></div>` : ''}
       <div class="line"><span class="owner">${esc(i.owner)}</span></div>
-      ${status}
     </div></${tag}>`;
 }
 
