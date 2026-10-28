@@ -65,4 +65,4 @@ WHERE 1 = 1
          TRY_TO_NUMBER(SPLIT_PART(REPLACE({{bins}}, ' ', ''), '-', 1))) ]]
   [[ AND IS_ARENA_CLUB = (LOWER({{arena_club}}) = 'true') ]]
   [[ AND CATEGORY = {{category}} ]]
-ORDER BY BIN_NUMBER, CATEGORY, SLOT
+ORDER BY BIN_NUMBER, CATEGORY, SLOT 
