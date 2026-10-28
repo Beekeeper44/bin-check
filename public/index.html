@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bin Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script>
+(function(){var t;try{t=localStorage.getItem('bincheck-theme')}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';
+document.documentElement.dataset.theme=t;})();
+</script>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#050806; --panel:#0b110d; --panel2:#0f1812; --line:#1b2a1f;
+  --text:#d9f2dd; --muted:#7c9282; --ac:#39FF14; --ac-fill:#39FF14; --ac-dim:#1d6b0d;
+  --other:#5f6f86; --empty:#121a14; --empty-line:#18221b; --warn:#ffb020; --watch:#4fc3f7; --watch-line:#1d4a5c;
+  --err:#ff6b6b; --zero:#344238; --none:#33433a; --img:#070b08;
+  --header:rgba(5,8,6,.95); --chip:rgba(0,0,0,.8); --scrim:rgba(0,0,0,.78);
+  --demo-bg:#1f1a08; --demo-line:#4a3c10; --hl:#ffffff;
+  --pend:#a8ef3c; --vault:#3a80e0; --pill-text:#0b1a0e;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#f3f6f3; --panel:#ffffff; --panel2:#eaf0eb; --line:#d3ddd5;
+  --text:#0f1a12; --muted:#5a6d5f; --ac:#1a8a00; --ac-fill:#2ecc0f; --ac-dim:#9fd98f;
+  --other:#8d9aac; --empty:#e4eae5; --empty-line:#d0d9d2; --warn:#b06a00; --watch:#0277bd; --watch-line:#9ccbe6;
+  --err:#c62828; --zero:#b7c3ba; --none:#9aa89e; --img:#f0f3f1;
+  --header:rgba(243,246,243,.95); --chip:rgba(255,255,255,.92); --scrim:rgba(15,26,18,.45);
+  --demo-bg:#fff4dc; --demo-line:#f0d08a; --hl:#0f1a12;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.45}
+a{color:var(--ac)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+
+header{position:sticky;top:0;z-index:6;background:var(--header);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:14px 24px}
+.top{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap}
+.brand{font-weight:800;font-size:28px;letter-spacing:-.02em;white-space:nowrap;align-self:center}
+.brand span{color:var(--ac)}
+.controls{display:flex;gap:10px;flex-wrap:wrap;flex:1}
+.field{display:flex;flex-direction:column;gap:3px}
+.field label{font-size:11px;color:var(--muted)}
+.field input,.field select{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:150px}
+.field input:focus,.field select:focus{border-color:var(--ac)}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px 14px;cursor:pointer;align-self:flex-end}
+.btn:hover{border-color:var(--ac)}
+.stats{display:flex;gap:28px;flex-wrap:wrap;margin-top:12px}
+.stat b{display:block;font-size:20px;font-weight:800;letter-spacing:-.02em}
+.stat small{color:var(--muted)}
+.stat.ac b{color:var(--ac)} .stat.warn b{color:var(--pend)} .stat.w b{color:var(--watch)}
+
+main{padding:16px 24px 60px}
+.msg{padding:40px 0;color:var(--muted)}
+.msg.err{color:var(--err)}
+.demo{background:var(--demo-bg);border:1px solid var(--demo-line);color:#e0a020;padding:8px 12px;border-radius:6px;margin-bottom:14px}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{width:100%;border-collapse:collapse;min-width:900px}
+thead th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600;font-size:13px;text-align:right;padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+thead th.l{text-align:left}
+thead th[aria-sort] {color:var(--ac)}
+tbody td{font-size:16px;padding:12px 14px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+tbody td.l{text-align:left}
+tr.bin{cursor:pointer}
+tr.bin:hover td{background:var(--panel)}
+tr.bin.open td{background:var(--panel2);border-bottom-color:transparent}
+tr.bin td.num{font-weight:800;font-size:19px}
+tr.bin.has-ac td:first-child{box-shadow:inset 3px 0 0 var(--ac-fill)}
+td.z{color:var(--text)}
+td.ac{color:var(--ac);font-weight:700}
+td.w{color:var(--watch);font-weight:700}
+td.warn{color:var(--pend);font-weight:700}
+.chev{display:inline-block;color:var(--muted);margin-right:8px;transition:transform .15s}
+tr.open .chev{transform:rotate(90deg)}
+
+tr.drawer>td{padding:0;background:var(--panel2);text-align:left;white-space:normal}
+.dr{padding:4px 18px 20px 18px;border-left:3px solid var(--ac-dim)}
+.dr-top{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px}
+.groups{display:flex;gap:18px;flex-wrap:wrap}
+.group{display:flex;flex-direction:column;gap:5px}
+.group>span{font-size:11px;color:var(--muted)}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.pill{background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer;color:var(--muted)}
+.pill.on{border-color:var(--ac);color:var(--ac)}
+.slotmap{display:flex;flex-direction:column;gap:5px;margin-left:auto}
+.slotmap>span{font-size:11px;color:var(--muted)}
+.slots{display:grid;grid-template-columns:repeat(20,11px);gap:2px}
+.s{width:11px;height:11px;border-radius:2px;background:var(--empty);border:1px solid var(--empty-line)}
+.s.a{background:var(--ac-fill);border-color:var(--ac-fill);cursor:pointer}
+.s.o{background:var(--other);border-color:var(--other);cursor:pointer}
+.s.p{box-shadow:0 0 0 2px var(--pend)}
+.s.dim{opacity:.2}
+.s.hl{outline:2px solid var(--hl);outline-offset:1px}
+
+.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px}
+.item{background:var(--bg);border:1px solid var(--line);border-radius:8px;overflow:hidden;text-decoration:none;color:inherit;display:flex;flex-direction:column;scroll-margin:140px}
+.item:hover{border-color:var(--muted)}
+.item.ac{border-color:var(--ac-dim)}
+.item.flash{border-color:var(--hl);box-shadow:0 0 0 2px var(--hl)}
+.img{aspect-ratio:3/5;background:var(--img);display:flex;align-items:center;justify-content:center;position:relative}
+.item.watch .img{aspect-ratio:1/1}
+.img img{width:100%;height:100%;object-fit:contain}
+.img .none{color:var(--none);font-size:11px}
+.badge{position:absolute;top:6px;left:6px;background:var(--chip);border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-weight:700}
+.item.ac .badge{color:var(--ac);border-color:var(--ac-dim)}
+.kind{position:absolute;top:6px;right:6px;font-size:10px;color:var(--watch);border:1px solid var(--watch-line);border-radius:4px;padding:1px 6px;background:var(--chip)}
+.meta{padding:9px 10px 11px;display:flex;flex-direction:column;gap:2px}
+.meta .t{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta .sub{color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta .line{display:flex;justify-content:space-between;gap:6px;font-size:11px;margin-top:4px}
+.meta .owner{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item.ac .owner{color:var(--ac)}
+.status{display:inline-block;align-self:flex-start;margin-top:6px;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:700;background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
+.status.pend{background:var(--pend);color:var(--pill-text);border-color:var(--pend)}
+.status.vault{background:var(--vault);color:var(--pill-text);border-color:var(--vault)}
+.item.pend{border:2px solid var(--pend);box-shadow:0 0 0 1px var(--pend)}
+.item.pend .badge{background:var(--pend);color:var(--pill-text);border-color:var(--pend)}
+.sum{padding:5px 0;color:var(--muted)}
+.sum b{color:var(--text)} .sum b.ev{color:var(--ac);margin-left:10px}
+.evv{color:var(--ac);font-weight:700}
+.more{display:block;margin:16px auto 0}
+.focusbar{margin-bottom:12px}
+.item{cursor:pointer}
+.modal{position:fixed;inset:0;z-index:20;background:var(--scrim);display:flex;align-items:center;justify-content:center;padding:20px}
+.modal[hidden]{display:none}
+.mbox{background:var(--panel);border:1px solid var(--line);border-radius:10px;width:100%;max-width:860px;max-height:92vh;overflow:auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:24px;padding:22px}
+.mimg{background:var(--img);border-radius:8px;aspect-ratio:3/5;display:flex;align-items:center;justify-content:center}
+.mimg img{width:100%;height:100%;object-fit:contain}
+.mimg .none{color:var(--none)}
+.mpos{color:var(--muted);font-size:11px}
+.mside h2{margin:6px 0 2px;font-size:22px;letter-spacing:-.02em}
+.msub{color:var(--muted)}
+.mev{color:var(--ac);font-size:26px;font-weight:800;margin-top:12px}
+.mside dl{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:16px 0}
+.mside dt{color:var(--muted)}
+.mside dd{margin:0;word-break:break-all}
+.mbtns{display:flex;gap:8px;flex-wrap:wrap}
+.btn.primary{border-color:var(--ac);color:var(--ac);text-decoration:none}
+@media (max-width:700px){.mbox{grid-template-columns:1fr}.mimg{max-height:50vh}}
+
+@media (max-width:820px){ header,main{padding-left:12px;padding-right:12px} .slotmap{margin-left:0} }
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="brand">Bin <span>Check</span></div>
+    <div class="controls">
+      <div class="field"><label for="f-bins">Bin or range</label><input id="f-bins" placeholder="701 or 701-750" autocomplete="off"></div>
+      <div class="field"><label for="f-name">Bin name</label><input id="f-name" placeholder="Chance" autocomplete="off"></div>
+      <div class="field"><label for="f-show">Show</label>
+        <select id="f-show">
+          <option value="all">All bins</option>
+          <option value="ac">Bins with Arena Club items</option>
+          <option value="non">Bins without Arena Club items</option>
+          <option value="watch">Bins with watches</option>
+          <option value="pending">Bins with pending checkout</option>
+        </select>
+      </div>
+      <button class="btn" id="reload">Refresh</button>
+      <button class="btn" id="theme" aria-label="Switch color mode"></button>
+    </div>
+  </div>
+  <div class="stats" id="stats"></div>
+</header>
+<div id="modal" class="modal" hidden><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="m-title"></div></div>
+<main id="main"><div class="msg">Loading bins from Metabase…</div></main>
+
+<script>
+const PAGE = 200;
+const state = { bins: [], items: {}, open: null, focus: null, shownItems: [], mIdx: -1, owner: 'all', type: 'all', shown: PAGE, sort: { key: 'num', dir: 1 }, demo: false };
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => { const n = Number(v); return isNaN(n) ? 0 : n; };
+const fmt = n => n.toLocaleString();
+const titleCase = s => String(s || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+const statusPill = s => !s ? '' : `<span class="status ${s === 'pending_external_checkout' ? 'pend' : s === 'vaulted' ? 'vault' : ''}">${esc(titleCase(s))}</span>`;
+const money = n => '$' + Math.round(n).toLocaleString();
+const truthy = v => v === true || v === 1 || String(v).toLowerCase() === 'true';
+const norm = r => Object.fromEntries(Object.entries(r).map(([k, v]) => [k.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''), v]));
+const slotsOf = s => String(s ?? '').split(',').map(x => parseInt(x.trim(), 10)).filter(n => !isNaN(n));
+
+const COLS = [
+  { key: 'num', label: 'Bin #', l: true },
+  { key: 'name', label: 'Bin name', l: true },
+  { key: 'ac', label: 'Arena Club cards', cls: 'ac' },
+  { key: 'acW', label: 'Arena Club watches', cls: 'w' },
+  { key: 'other', label: 'Non Arena Club cards' },
+  { key: 'otherW', label: 'Non Arena Club watches', cls: 'w' },
+  { key: 'pending', label: 'Pending checkout', cls: 'warn' },
+  { key: 'total', label: 'Total items' },
+];
+
+// ---------- data ----------
+async function api(q, params = {}) {
+  if (state.demo) return demo(q, params);
+  const u = new URL('/api/metabase', location.origin);
+  u.searchParams.set('q', q);
+  for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
+  const r = await fetch(u);
+  const j = await r.json().catch(() => ({ error: `Server returned ${r.status}` }));
+  if (!r.ok || j.error) throw new Error(j.error || `Request failed (${r.status})`);
+  return j.rows.map(norm);
+}
+
+async function loadBins() {
+  $('#main').innerHTML = '<div class="msg">Loading bins from Metabase…</div>';
+  try {
+    const rows = await api('bins');
+    state.bins = rows.map(r => ({
+      num: num(r.bin_number), name: r.bin_name || '',
+      url: r.bin_url || `https://admin.arenaclub.com/i/${r.bin_number}`,
+      ac: num(r.arena_club_cards), other: num(r.non_arena_club_cards),
+      acW: num(r.arena_club_watches), otherW: num(r.non_arena_club_watches),
+      pending: num(r.pending_checkout_cards), total: num(r.total_items_in_bin),
+      acSlots: slotsOf(r.arena_club_slots), otherSlots: slotsOf(r.non_arena_club_slots),
+    }));
+    state.items = {}; state.open = null; state.shown = PAGE;
+    render();
+  } catch (e) {
+    $('#main').innerHTML = `<div class="msg err">Couldn't load bins. ${esc(e.message)}</div>`;
+    $('#stats').innerHTML = '';
+  }
+}
+
+async function loadItems(binNum) {
+  if (state.items[binNum] && state.items[binNum] !== 'error') return;
+  state.items[binNum] = 'loading'; renderDrawer();
+  try {
+    const rows = await api('items', { bins: String(binNum) });
+    state.items[binNum] = rows.map(r => {
+      const type = String(r.category || 'Card').toLowerCase() === 'watch' ? 'watch' : 'card';
+      const owner = String(r.owner_name ?? r.owner ?? '').trim();
+      const id = r.item_id || '';
+      const pending = truthy(r.is_pending_checkout) || r.item_status === 'pending_external_checkout';
+      return {
+        type, id,
+        slot: r.slot == null || r.slot === '' ? null : num(r.slot),
+        ac: r.is_arena_club != null ? truthy(r.is_arena_club) : /arena\s*club/i.test(owner),
+        owner: owner || 'No owner',
+        number: r.item_number ?? r.ac_number ?? '',
+        status: pending ? 'pending_external_checkout' : (r.item_status || ''),
+        title: r.title || r.player_name || (type === 'watch' ? 'Watch' : 'Unknown card'),
+        sub: r.subtitle || r.set_name || '',
+        company: String(r.grading_company || '').replace(/_/g, ' ').toUpperCase(),
+        grade: r.grade ?? r.overall ?? '',
+        ev: r.est_value == null || r.est_value === '' ? null : num(r.est_value),
+        img: r.front_image || '',
+        url: r.item_url || (id && type === 'card' ? `https://admin.arenaclub.com/cards/${id}` : ''),
+      };
+    }).sort((a, b) => (a.type === b.type ? 0 : a.type === 'card' ? -1 : 1) || (a.slot ?? 9999) - (b.slot ?? 9999));
+  } catch (e) {
+    state.items[binNum] = { error: e.message };
+  }
+  renderDrawer();
+}
+
+// ---------- filtering ----------
+function parseBins(v) {
+  v = v.replace(/\s/g, ''); if (!v) return null;
+  const parts = v.split(',').filter(Boolean).map(p => { const [a, b] = p.split('-').map(Number); return [a, isNaN(b) ? a : b]; }).filter(([a]) => !isNaN(a));
+  return parts.length ? parts : null;
+}
+function filtered() {
+  if (state.focus != null) return state.bins.filter(b => b.num === state.focus);
+  const ranges = parseBins($('#f-bins').value);
+  const name = $('#f-name').value.trim().toLowerCase();
+  const show = $('#f-show').value;
+  const { key, dir } = state.sort;
+  return state.bins.filter(b =>
+    (!ranges || ranges.some(([a, z]) => b.num >= Math.min(a, z) && b.num <= Math.max(a, z))) &&
+    (!name || b.name.toLowerCase().includes(name)) &&
+    (show === 'all' || (show === 'ac' && b.ac + b.acW > 0) || (show === 'non' && b.ac + b.acW === 0) ||
+     (show === 'watch' && b.acW + b.otherW > 0) || (show === 'pending' && b.pending > 0))
+  ).sort((a, b) => (typeof a[key] === 'string' ? a[key].localeCompare(b[key]) : a[key] - b[key]) * dir || a.num - b.num);
+}
+
+// ---------- render ----------
+function render() {
+  const list = filtered();
+  const sum = k => list.reduce((t, b) => t + b[k], 0);
+  $('#stats').innerHTML = `
+    <div class="stat"><b>${fmt(list.length)}</b><small>bins</small></div>
+    <div class="stat ac"><b>${fmt(sum('ac'))}</b><small>Arena Club cards</small></div>
+    <div class="stat w"><b>${fmt(sum('acW'))}</b><small>Arena Club watches</small></div>
+    <div class="stat"><b>${fmt(sum('other'))}</b><small>Non Arena Club cards</small></div>
+    <div class="stat w"><b>${fmt(sum('otherW'))}</b><small>Non Arena Club watches</small></div>
+    <div class="stat warn"><b>${fmt(sum('pending'))}</b><small>Pending checkout</small></div>
+    <div class="stat"><b>${fmt(sum('total'))}</b><small>Total items</small></div>`;
+  const banner = state.demo ? '<div class="demo">Demo data. Deploy to Vercel with the Metabase env vars to see live bins.</div>' : '';
+  if (!list.length) { $('#main').innerHTML = banner + '<div class="msg">No bins match these filters. Clear the bin range or set Show to "All bins".</div>'; return; }
+  const page = list.slice(0, state.shown);
+  const back = state.focus != null ? `<div class="focusbar"><button class="btn" id="back">Back to all bins</button></div>` : '';
+  const head = COLS.map(c => `<th class="${c.l ? 'l' : ''}" data-sort="${c.key}" ${state.sort.key === c.key ? `aria-sort="${state.sort.dir > 0 ? 'ascending' : 'descending'}"` : ''}>${c.label}${state.sort.key === c.key ? (state.sort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') + '<th class="l">Admin</th>';
+  const rows = page.map(b => {
+    const open = state.open === b.num;
+    const cells = COLS.map(c => {
+      if (c.key === 'num') return `<td class="l num"><span class="chev" aria-hidden="true">▶</span>${b.num}</td>`;
+      if (c.key === 'name') return `<td class="l">${esc(b.name)}</td>`;
+      const v = b[c.key];
+      return `<td class="${v ? (c.cls || '') : 'z'}">${fmt(v)}</td>`;
+    }).join('');
+    return `<tr class="bin ${open ? 'open' : ''} ${b.ac + b.acW ? 'has-ac' : ''}" data-bin="${b.num}" tabindex="0" aria-expanded="${open}">${cells}<td class="l"><a href="${esc(b.url)}" target="_blank" rel="noopener" class="admin">Open</a></td></tr>` +
+      (open ? `<tr class="drawer"><td colspan="${COLS.length + 1}" id="drawer"></td></tr>` : '');
+  }).join('');
+  $('#main').innerHTML = banner + back + `<div class="tablewrap"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>` +
+    (list.length > state.shown ? `<button class="btn more" id="more">Show ${fmt(Math.min(PAGE, list.length - state.shown))} more of ${fmt(list.length - state.shown)}</button>` : '');
+  if (state.open != null) renderDrawer();
+}
+
+function renderDrawer() {
+  const td = document.getElementById('drawer'); if (!td) return;
+  const binNum = state.open, b = state.bins.find(x => x.num === binNum);
+  const data = state.items[binNum];
+  if (!data || data === 'loading') { td.innerHTML = '<div class="dr msg">Loading items…</div>'; return; }
+  if (data.error) { td.innerHTML = `<div class="dr msg err">Couldn't load items for bin ${binNum}. ${esc(data.error)}</div>`; return; }
+
+  const byType = data.filter(i => state.type === 'all' || i.type === state.type);
+  const shown = byType.filter(i => state.owner === 'all' || (state.owner === 'ac' ? i.ac : !i.ac));
+  const cnt = f => data.filter(f).length;
+  const pill = (grp, val, label, n) => `<button class="pill ${state[grp] === val ? 'on' : ''}" data-grp="${grp}" data-val="${val}">${label} ${fmt(n)}</button>`;
+  const typeOk = i => state.type === 'all' || i.type === state.type;
+  const ev = list => list.reduce((t, i) => t + (i.ev || 0), 0);
+  const noEv = shown.filter(i => i.ev == null).length;
+
+  // slot map (cards only)
+  const cards = data.filter(i => i.type === 'card' && i.slot != null);
+  const maxSlot = Math.max(100, ...cards.map(c => c.slot));
+  const bySlot = new Map(cards.map(c => [c.slot, c]));
+  let cells = '';
+  for (let s = 1; s <= maxSlot; s++) {
+    const c = bySlot.get(s);
+    const vis = c && (state.owner === 'all' || (state.owner === 'ac' ? c.ac : !c.ac)) && state.type !== 'watch';
+    const cls = c ? (c.ac ? 'a' : 'o') + (c.status === 'pending_external_checkout' ? ' p' : '') + (vis ? '' : ' dim') : '';
+    cells += `<div class="s ${cls}" data-slot="${s}" title="Slot ${s}${c ? `, ${c.ac ? 'Arena Club' : esc(c.owner)}` : ', empty'}"></div>`;
+  }
+
+  state.shownItems = shown;
+  td.innerHTML = `<div class="dr">
+    <div class="dr-top">
+      <div class="groups">
+        <div class="group"><span>Owner</span><div class="pills">
+          ${pill('owner', 'all', 'All', cnt(typeOk))}${pill('owner', 'ac', 'Arena Club', cnt(i => typeOk(i) && i.ac))}${pill('owner', 'non', 'Non Arena Club', cnt(i => typeOk(i) && !i.ac))}
+        </div></div>
+        <div class="group"><span>Type</span><div class="pills">
+          ${pill('type', 'all', 'All', data.length)}${pill('type', 'card', 'Cards', cnt(i => i.type === 'card'))}${pill('type', 'watch', 'Watches', cnt(i => i.type === 'watch'))}
+        </div></div>
+        <div class="group"><span>Showing</span><div class="sum"><b>${fmt(shown.length)}</b> items <b class="ev">${money(ev(shown))}</b> est. value${noEv ? ` <small>(${fmt(noEv)} without a value)</small>` : ''}</div></div>
+      </div>
+      <div class="slotmap"><span>Bin ${binNum} ${esc(b?.name || '')} card slots</span><div class="slots">${cells}</div></div>
+    </div>
+    ${shown.length ? `<div class="items">${shown.map((it, idx) => itemHTML(it, idx)).join('')}</div>` : '<div class="msg">Nothing in this bin matches these filters.</div>'}
+  </div>`;
+}
+
+function itemHTML(i, idx) {
+  const grade = [i.company, i.grade].filter(x => x !== '' && x != null).join(' ');
+  const status = statusPill(i.status || (i.type === 'card' ? 'vaulted' : ''));
+  const id = i.type === 'card' && i.slot != null ? `id="slot-${i.slot}"` : '';
+  const tag = i.url ? 'a' : 'div';
+  return `<${tag} class="item ${i.ac ? 'ac' : ''} ${i.type} ${i.status === 'pending_external_checkout' ? 'pend' : ''}" ${id} ${i.url ? `href="${esc(i.url)}" target="_blank" rel="noopener"` : ''} data-slot="${i.slot ?? ''}" data-idx="${idx}">
+    <div class="img">${i.img ? `<img src="${esc(i.img)}" alt="${esc(i.title)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'none',textContent:'No image'}))">` : '<span class="none">No image</span>'}
+      ${i.type === 'card' ? `<span class="badge">${i.slot ?? '–'}</span>` : '<span class="kind">Watch</span>'}</div>
+    <div class="meta">
+      <div class="t" title="${esc(i.title)}">${esc(i.title)}</div>
+      ${i.sub ? `<div class="sub" title="${esc(i.sub)}">${esc(i.sub)}</div>` : ''}
+      <div class="line"><span>${esc(grade)}</span><span class="evv">${i.ev != null ? money(i.ev) : ''}</span></div>
+      ${i.number && String(i.number).length < 14 ? `<div class="line"><span class="sub">${esc(i.number)}</span></div>` : ''}
+      <div class="line"><span class="owner">${esc(i.owner)}</span></div>
+      ${status}
+    </div></${tag}>`;
+}
+
+function openBin(binNum) {
+  if (state.focus === binNum) return;
+  state.focus = binNum; state.open = binNum; state.owner = 'all'; state.type = 'all';
+  render(); loadItems(binNum);
+  window.scrollTo({ top: 0 });
+}
+function closeFocus() {
+  state.focus = null; state.open = null;
+  if (/^\d+$/.test($('#f-bins').value.trim())) $('#f-bins').value = '';
+  state.shown = PAGE; render();
+}
+
+// ---------- card detail ----------
+function openModal(idx) {
+  const list = state.shownItems; if (!list.length) return;
+  state.mIdx = (idx + list.length) % list.length;
+  const i = list[state.mIdx];
+  const grade = [i.company, i.grade].filter(x => x !== '' && x != null).join(' ');
+  const row = (k, v) => v === '' || v == null ? '' : `<dt>${k}</dt><dd>${esc(v)}</dd>`;
+  $('#modal .mbox').innerHTML = `
+    <div class="mimg">${i.img ? `<img src="${esc(i.img)}" alt="${esc(i.title)}">` : '<span class="none">No image</span>'}</div>
+    <div class="mside">
+      <div class="mpos">${state.mIdx + 1} of ${list.length} in bin ${state.focus}</div>
+      <h2 id="m-title">${esc(i.title)}</h2>
+      ${i.sub ? `<div class="msub">${esc(i.sub)}</div>` : ''}
+      ${i.ev != null ? `<div class="mev">${money(i.ev)}</div>` : ''}
+      <dl>
+        ${row('Slot', i.slot ?? (i.type === 'watch' ? 'No slot (watch)' : ''))}
+        ${row('Type', i.type === 'watch' ? 'Watch' : 'Card')}
+        ${row('Grade', grade)}
+        ${row('Owner', i.ac ? 'Arena Club' : i.owner)}
+        ${i.status ? `<dt>Status</dt><dd>${statusPill(i.status)}</dd>` : ''}
+        ${row('Item ID', i.id || i.number)}
+      </dl>
+      <div class="mbtns">
+        ${i.url ? `<a class="btn primary" href="${esc(i.url)}" target="_blank" rel="noopener">Open in admin</a>` : ''}
+        <button class="btn" data-m="prev">Previous</button>
+        <button class="btn" data-m="next">Next</button>
+        <button class="btn" data-m="close">Close</button>
+      </div>
+    </div>`;
+  $('#modal').hidden = false;
+  document.querySelectorAll('.s.hl').forEach(x => x.classList.remove('hl'));
+  if (i.slot != null) { const c = document.querySelector(`.s[data-slot="${i.slot}"]`); if (c) c.classList.add('hl'); }
+  $('#modal [data-m="close"]').focus();
+}
+function closeModal() { $('#modal').hidden = true; state.mIdx = -1; }
+$('#modal').addEventListener('click', e => {
+  if (e.target.id === 'modal') return closeModal();
+  const m = e.target.closest('[data-m]')?.dataset.m;
+  if (m === 'close') closeModal();
+  if (m === 'prev') openModal(state.mIdx - 1);
+  if (m === 'next') openModal(state.mIdx + 1);
+});
+document.addEventListener('keydown', e => {
+  if ($('#modal').hidden) return;
+  if (e.key === 'Escape') closeModal();
+  if (e.key === 'ArrowLeft') openModal(state.mIdx - 1);
+  if (e.key === 'ArrowRight') openModal(state.mIdx + 1);
+});
+
+// ---------- events ----------
+$('#main').addEventListener('click', e => {
+  if (e.target.closest('a.admin')) return;
+  const th = e.target.closest('th[data-sort]');
+  if (th) { const k = th.dataset.sort; state.sort = { key: k, dir: state.sort.key === k ? -state.sort.dir : (k === 'num' || k === 'name' ? 1 : -1) }; render(); return; }
+  const pill = e.target.closest('.pill');
+  if (pill) { state[pill.dataset.grp] = pill.dataset.val; renderDrawer(); return; }
+  const cell = e.target.closest('.s.a, .s.o');
+  if (cell) {
+    state.type = 'all'; state.owner = 'all'; renderDrawer();
+    const el = document.getElementById('slot-' + cell.dataset.slot);
+    if (el) { el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); }
+    return;
+  }
+  if (e.target.id === 'more') { state.shown += PAGE; render(); return; }
+  if (e.target.id === 'back') { closeFocus(); return; }
+  const item = e.target.closest('.item');
+  if (item && !(e.metaKey || e.ctrlKey)) { e.preventDefault(); openModal(Number(item.dataset.idx)); return; }
+  const row = e.target.closest('tr.bin');
+  if (row) openBin(Number(row.dataset.bin));
+});
+$('#main').addEventListener('keydown', e => {
+  const row = e.target.closest('tr.bin');
+  if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openBin(Number(row.dataset.bin)); }
+});
+$('#main').addEventListener('mouseover', e => {
+  const it = e.target.closest('.item.card'); if (!it) return;
+  document.querySelectorAll('.s.hl').forEach(x => x.classList.remove('hl'));
+  const cell = document.querySelector(`.s[data-slot="${it.dataset.slot}"]`); if (cell) cell.classList.add('hl');
+});
+$('#f-bins').addEventListener('input', () => {
+  const v = $('#f-bins').value.trim();
+  if (/^\d+$/.test(v) && state.bins.some(b => b.num === Number(v))) { openBin(Number(v)); return; }
+  state.focus = null; state.open = null; state.shown = PAGE; render();
+});
+$('#f-name').addEventListener('input', () => { state.focus = null; state.open = null; state.shown = PAGE; render(); });
+$('#f-show').addEventListener('change', () => { state.focus = null; state.open = null; state.shown = PAGE; render(); });
+$('#reload').addEventListener('click', loadBins);
+function setThemeLabel() { $('#theme').textContent = document.documentElement.dataset.theme === 'light' ? 'Dark mode' : 'Light mode'; }
+$('#theme').addEventListener('click', () => {
+  const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem('bincheck-theme', t); } catch (e) {}
+  setThemeLabel();
+});
+setThemeLabel();
+
+// ---------- demo mode (opened as a file, or ?demo) ----------
+const WORDS = ['Apart','Aid','Explain','Jack','Growth','Snake','Window','Feet','Compare','Chance','Driver','Bow','How','Pet','Sitting','Ancient','Headed','Him','Taught','Nervous','Price'];
+const PLAYERS = [['Charizard','Pokemon Base Set'],['Michael Jordan','1986 Fleer'],['Shohei Ohtani','2018 Topps Chrome'],['Pikachu','Pokemon Celebrations'],['Patrick Mahomes','2017 Panini Prizm'],['Luka Doncic','2018 Panini Prizm'],['Mickey Mantle','1952 Topps'],['Umbreon VMAX','Evolving Skies']];
+let demoCache;
+function demo(q, params) {
+  if (!demoCache) {
+    let seed = 11; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    demoCache = { bins: [], items: {} };
+    for (let n = 676; n <= 780; n++) {
+      const filled = Math.floor(rnd() * 95) + 1, acShare = rnd() < .45 ? rnd() * .5 : 0;
+      const slots = [...Array(100).keys()].map(i => i + 1).sort(() => rnd() - .5).slice(0, filled).sort((a, b) => a - b);
+      const items = slots.map(s => {
+        const p = PLAYERS[Math.floor(rnd() * PLAYERS.length)], ac = rnd() < acShare;
+        return { BIN_NUMBER: n, CATEGORY: 'Card', SLOT: s, OWNER: ac ? 'Arena Club' : 'Customer',
+          ITEM_ID: Math.floor(rnd() * 1e9).toString(16) + '-demo', IS_PENDING_CHECKOUT: rnd() < .02,
+          PLAYER_NAME: p[0], SET_NAME: p[1], GRADING_COMPANY: ['psa','beckett','csg','arena_club'][Math.floor(rnd() * 4)],
+          OVERALL: String(7 + Math.floor(rnd() * 4)), EST_VALUE: rnd() < .1 ? null : Math.round(10 + rnd() * rnd() * 4000), FRONT_IMAGE: '', ITEM_URL: '#' };
+      });
+      if (rnd() < .2) for (let w = 0; w < 1 + Math.floor(rnd() * 4); w++) {
+        const ac = rnd() < .6;
+        items.push({ BIN_NUMBER: n, CATEGORY: 'Watch', SLOT: null, OWNER: ac ? 'Arena Club' : 'Customer', IS_PENDING_CHECKOUT: false, EST_VALUE: Math.round(800 + rnd() * 9000) });
+      }
+      items.forEach(i => i.IS_ARENA_CLUB = i.OWNER === 'Arena Club');
+      const C = items.filter(i => i.CATEGORY === 'Card'), W = items.filter(i => i.CATEGORY === 'Watch');
+      demoCache.items[n] = items;
+      demoCache.bins.push({ BIN_NUMBER: n, BIN_NAME: WORDS[n % WORDS.length],
+        ARENA_CLUB_CARDS: C.filter(i => i.IS_ARENA_CLUB).length, NON_ARENA_CLUB_CARDS: C.filter(i => !i.IS_ARENA_CLUB).length,
+        ARENA_CLUB_WATCHES: W.filter(i => i.IS_ARENA_CLUB).length, NON_ARENA_CLUB_WATCHES: W.filter(i => !i.IS_ARENA_CLUB).length,
+        ARENA_CLUB_SLOTS: C.filter(i => i.IS_ARENA_CLUB).map(i => i.SLOT).join(', '), NON_ARENA_CLUB_SLOTS: C.filter(i => !i.IS_ARENA_CLUB).map(i => i.SLOT).join(', '),
+        PENDING_CHECKOUT_CARDS: C.filter(i => i.IS_PENDING_CHECKOUT).length, TOTAL_ITEMS_IN_BIN: items.length });
+    }
+  }
+  const rows = q === 'bins' ? demoCache.bins : (demoCache.items[params.bins] || []);
+  return new Promise(r => setTimeout(() => r(rows.map(norm)), 250));
+}
+
+state.demo = location.protocol === 'file:' || new URLSearchParams(location.search).has('demo');
+loadBins();
+</script>
+</body>
+</html>
